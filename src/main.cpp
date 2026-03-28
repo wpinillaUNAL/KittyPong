@@ -5,9 +5,9 @@
 
 // ─── Pines ─────────────────────────────────────────────────
 #define BEEPER          27
-#define POT_A           4     // Potenciómetro jugador A
-#define POT_B           2     // Potenciómetro jugador B
-#define PIN_NEOPIXEL    5
+#define POT_A           14     // Potenciómetro jugador A
+#define POT_B           12     // Potenciómetro jugador B
+#define PIN_NEOPIXEL    13     // Pin neopixel
 
 // ─── Configuración pantalla/LED ───────────────────────────────
 #define SCREEN_WIDTH    128

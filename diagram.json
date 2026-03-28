@@ -4,29 +4,29 @@
   "editor": "wokwi",
   "parts": [
     { "type": "board-esp32-devkit-c-v4", "id": "esp", "top": -45.33, "left": -12, "attrs": {} },
-    { "type": "board-ssd1306", "id": "oled1", "top": -0.81, "left": 136.84, "attrs": {} },
+    { "type": "board-ssd1306", "id": "oled1", "top": -0.81, "left": 200, "attrs": {} },
     { "type": "wokwi-potentiometer", "id": "pot1", "top": 164.18, "left": -99.17, "attrs": {} },
     { "type": "wokwi-potentiometer", "id": "pot2", "top": 164.85, "left": 92.16, "attrs": {} },
-    {"type": "wokwi-buzzer","id": "bz1","top": -45.6,"left": -161.4,"attrs": { "volume": "0.1" }},
-    {"type": "wokwi-led-ring","id": "ring1","top": -210.56,"left": -40,"attrs": { "pixels": "16" }}
+    {"type": "wokwi-buzzer","id": "bz1","top": -100,"left": -161.4,"attrs": { "volume": "0.1" }},
+    {"type": "wokwi-led-ring","id": "ring1","top": -210.56,"left": -30,"attrs": { "pixels": "16" }}
   ],
   "connections": [
     [ "esp:TX0", "$serialMonitor:RX", "", [] ],
     [ "esp:RX0", "$serialMonitor:TX", "", [] ],
     [ "oled1:GND", "esp:GND.1", "black", [ "v-11.4", "h-71.51", "v105.33" ] ],
     [ "oled1:VCC", "esp:3V3", "red", [ "v-22.06", "h-66.96", "v128" ] ],
-    [ "oled1:SDA", "esp:D21", "green", [ "v-38.06", "h-87.57", "v44" ] ],
-    [ "oled1:SCL", "esp:D22", "green", [ "v-33.4", "h-91.74", "v13.33" ] ],
-    [ "pot1:GND", "esp:GND.2", "black", [ "v21.91", "h-40.33", "v-146.67" ] ],
+    [ "oled1:SDA", "esp:21", "green", [ "v-38.06", "h-87.57", "v44" ] ],
+    [ "oled1:SCL", "esp:22", "green", [ "v-33.4", "h-91.74", "v13.33" ] ],
+    [ "pot1:GND", "esp:GND.1", "black", [ "v21.91", "h-40.33", "v-146.67" ] ],
     [ "pot1:VCC", "esp:3V3", "red", [ "v22.57", "h34.59", "v-100", "h121.33", "v-42.67" ] ],
-    [ "pot2:GND", "esp:GND.2", "black", [ "v30.57", "h-239.66", "v-159.33" ] ],
+    [ "pot2:GND", "esp:GND.1", "black", [ "v30.57", "h-239.66", "v-159.33" ] ],
     [ "pot2:VCC", "esp:3V3", "red", [ "v27.91", "h41.92", "v-155.33" ] ],
-    [ "pot1:SIG", "esp:D4", "green", [ "v25.91", "h49", "v-100", "h122.67", "v-85.33" ] ],
-    [ "pot2:SIG", "esp:D2", "green", [ "v36.57", "h67.67", "v-179.33" ] ],
-    [ "bz1:2", "esp:D27", "red", [ "h-0.4", "v9.6", "h127.4" ] ],
-    [ "bz1:1", "esp:GND.2", "black", [ "v0" ] ],
-    [ "ring1:GND", "esp:GND.2", "black", [ "v28.8", "h96", "v57.6" ] ],
-    [ "ring1:DIN", "esp:D5", "green", [ "v19.2", "h115.2", "v153.6" ] ],
-    [ "esp:VIN", "ring1:VCC", "red", [ "h-43.01", "v-220.8", "h86.4" ] ]
+    [ "pot1:SIG", "esp:14", "green", [ "v25.91", "h49", "v-100", "h122.67", "v-85.33" ] ],
+    [ "pot2:SIG", "esp:12", "green", [ "v36.57", "h67.67", "v-179.33" ] ],
+    [ "bz1:2", "esp:27", "red", [ "h-0.4", "v9.6", "h127.4" ] ],
+    [ "bz1:1", "esp:GND.1", "black", [ "v0" ] ],
+    [ "ring1:GND", "esp:GND.1", "black", [ "v28.8", "h96", "v57.6" ] ],
+    [ "ring1:DIN", "esp:13", "green", [ "v19.2", "h115.2", "v153.6" ] ],
+    [ "esp:5V", "ring1:VCC", "red", [ "h-43.01", "v-220.8", "h86.4" ] ]
   ]
 }
