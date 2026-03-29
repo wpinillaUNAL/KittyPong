@@ -65,19 +65,26 @@ void taskNeoPixel(void *pvParameters) {
   //ring.setBrightness(60); // Moderate brightness for battery longevity
   while (true) {
     // Show RED
-    for(int i=0; i<NUM_LEDS; i++) ring.setPixelColor(i, ring.Color(255, 0, 0));
-    ring.show();
-    vTaskDelay(pdMS_TO_TICKS(1000));
+    if(!gameRunning){
+
+      for(int i=0; i<NUM_LEDS; i+=2) ring.setPixelColor(i, ring.Color(255, 0, 0));
+      for(int i=1; i<NUM_LEDS; i+=2) ring.setPixelColor(i, ring.Color(255, 255, 255));
+      ring.show();
+      vTaskDelay(pdMS_TO_TICKS(10));
+    }
+    else{
+
+      for(int i=0; i<8 && i<scoreA; i++) ring.setPixelColor(i, ring.Color(0, 255, 0));
+      ring.show();
+      vTaskDelay(pdMS_TO_TICKS(10));
+  
+      // Show BLUE
+      for(int i=15; i>7 && (15-i)<scoreB; i--) ring.setPixelColor(i, ring.Color(0, 0, 255));
+      ring.show();
+      vTaskDelay(pdMS_TO_TICKS(10));
+    }
 
     // Show GREEN
-    for(int i=0; i<NUM_LEDS; i++) ring.setPixelColor(i, ring.Color(0, 255, 0));
-    ring.show();
-    vTaskDelay(pdMS_TO_TICKS(1000));
-
-    // Show BLUE
-    for(int i=0; i<NUM_LEDS; i++) ring.setPixelColor(i, ring.Color(0, 0, 255));
-    ring.show();
-    vTaskDelay(pdMS_TO_TICKS(1000));
   }
 }
 void centerPrint(const char* text, int y, int sz) {
@@ -86,10 +93,25 @@ void centerPrint(const char* text, int y, int sz) {
   display.setCursor(SCREEN_WIDTH / 2 - w / 2, y);
   display.print(text);
 }
+void updateScore(){
+  ring.clear();
+  for(int i=0; i<8 && i<scoreA; i++) ring.setPixelColor(i, ring.Color(255, 0, 0));
+  ring.show();
+  vTaskDelay(pdMS_TO_TICKS(10));
+  
+  for(int i=8; i<16 && i<scoreB+8; i++) ring.setPixelColor(i, ring.Color(255, 255, 255));
+  ring.show();
+  vTaskDelay(pdMS_TO_TICKS(10));
+}
 void showSplashScreen() {
+  ring.clear();
+  for(int i=0; i<NUM_LEDS; i+=2) ring.setPixelColor(i, ring.Color(255, 0, 0));
+  for(int i=1; i<NUM_LEDS; i+=2) ring.setPixelColor(i, ring.Color(255, 255, 255));
+  ring.show();
+  vTaskDelay(pdMS_TO_TICKS(10));
   display.clearDisplay();
   display.setTextColor(WHITE);
-  centerPrint("PONG", 8, 3);
+  centerPrint("KITTYPONG", 8, 2);
   centerPrint("Move paddles", 30, 1);
   centerPrint("to start", 42, 1);
   display.display();
@@ -132,6 +154,7 @@ void setup() {
 
   pinMode(BEEPER, OUTPUT);
   noTone(BEEPER);
+  ring.begin();
 
   if (!display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDR)) {
     Serial.println(F("SSD1306 init failed"));
@@ -149,7 +172,7 @@ void setup() {
   }
 
   // Crear tareas
-  xTaskCreate(taskNeoPixel, "LED_Task", 3000, NULL, 1, NULL);
+  //xTaskCreate(taskNeoPixel, "LED_Task", 3000, NULL, 1, NULL);
   xTaskCreate(
     TaskReadControls,      // función
     "ReadControls",        // nombre (debug)
@@ -302,7 +325,22 @@ void TaskRenderDisplay(void *pvParameters) {
     if (xSemaphoreTake(gameMutex, pdMS_TO_TICKS(8)) == pdTRUE) {
       if (!gameRunning) {
         drawSplash();
-      } else {
+      }
+      else if((scoreA==8) || (scoreB==8)){
+        const char * winner = (scoreA==8) ? "A" : "B"; 
+        display.clearDisplay();
+        display.setTextColor(WHITE);
+        centerPrint("WINNER IS:", 8, 2);
+        centerPrint(winner, 30, 2);
+        display.display();
+        vTaskDelay(pdMS_TO_TICKS(3000));
+        scoreA=0;scoreB=0;
+        display.clearDisplay(); 
+        gameRunning=false;
+        showSplashScreen();
+      }
+      else {
+        updateScore();
         // Palas
         display.fillRect(PADDLE_PAD, paddleA, PADDLE_W, PADDLE_H, WHITE);
         display.fillRect(SCREEN_WIDTH - PADDLE_PAD - PADDLE_W, paddleB, PADDLE_W, PADDLE_H, WHITE);
