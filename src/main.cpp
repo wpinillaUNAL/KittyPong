@@ -5,9 +5,9 @@
 
 // ─── Pines ─────────────────────────────────────────────────
 #define BEEPER          27
-#define POT_A           4     // Potenciómetro jugador A
-#define POT_B           2     // Potenciómetro jugador B
-#define PIN_NEOPIXEL    5
+#define POT_A           35     // Potenciómetro jugador A
+#define POT_B           34     // Potenciómetro jugador B
+#define PIN_NEOPIXEL    13     // Pin neopixel
 
 // ─── Configuración pantalla/LED ───────────────────────────────
 #define SCREEN_WIDTH    128
@@ -32,6 +32,12 @@ Adafruit_NeoPixel ring(NUM_LEDS, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800);
 #define MIN_Y_SPEED    0.5f
 #define MAX_Y_SPEED    2.0f
 
+enum GameState{
+  SPLASH,
+  PLAYING,
+  GAME_OVER
+};
+
 // ─── Variables globales (compartidas entre tareas) ─────────
 volatile float ballX      = SCREEN_WIDTH / 2.0f;
 volatile float ballY      = SCREEN_HEIGHT / 2.0f;
@@ -45,6 +51,7 @@ volatile int scoreA = 0;
 volatile int scoreB = 0;
 
 volatile bool gameRunning = false;
+volatile GameState gameState= SPLASH; 
 
 // Semáforo / mutex para proteger variables compartidas
 SemaphoreHandle_t gameMutex = NULL;
@@ -65,19 +72,26 @@ void taskNeoPixel(void *pvParameters) {
   //ring.setBrightness(60); // Moderate brightness for battery longevity
   while (true) {
     // Show RED
-    for(int i=0; i<NUM_LEDS; i++) ring.setPixelColor(i, ring.Color(255, 0, 0));
-    ring.show();
-    vTaskDelay(pdMS_TO_TICKS(1000));
+    if(!gameRunning){
+
+      for(int i=0; i<NUM_LEDS; i+=2) ring.setPixelColor(i, ring.Color(255, 0, 0));
+      for(int i=1; i<NUM_LEDS; i+=2) ring.setPixelColor(i, ring.Color(255, 255, 255));
+      ring.show();
+      vTaskDelay(pdMS_TO_TICKS(10));
+    }
+    else{
+
+      for(int i=0; i<8 && i<scoreA; i++) ring.setPixelColor(i, ring.Color(0, 255, 0));
+      ring.show();
+      vTaskDelay(pdMS_TO_TICKS(10));
+  
+      // Show BLUE
+      for(int i=15; i>7 && (15-i)<scoreB; i--) ring.setPixelColor(i, ring.Color(0, 0, 255));
+      ring.show();
+      vTaskDelay(pdMS_TO_TICKS(10));
+    }
 
     // Show GREEN
-    for(int i=0; i<NUM_LEDS; i++) ring.setPixelColor(i, ring.Color(0, 255, 0));
-    ring.show();
-    vTaskDelay(pdMS_TO_TICKS(1000));
-
-    // Show BLUE
-    for(int i=0; i<NUM_LEDS; i++) ring.setPixelColor(i, ring.Color(0, 0, 255));
-    ring.show();
-    vTaskDelay(pdMS_TO_TICKS(1000));
   }
 }
 void centerPrint(const char* text, int y, int sz) {
@@ -86,10 +100,25 @@ void centerPrint(const char* text, int y, int sz) {
   display.setCursor(SCREEN_WIDTH / 2 - w / 2, y);
   display.print(text);
 }
+void updateScore(){
+  ring.clear();
+  for(int i=0; i<8 && i<scoreA; i++) ring.setPixelColor(i, ring.Color(255, 0, 0));
+  ring.show();
+  vTaskDelay(pdMS_TO_TICKS(10));
+  
+  for(int i=8; i<16 && i<scoreB+8; i++) ring.setPixelColor(i, ring.Color(255, 255, 255));
+  ring.show();
+  vTaskDelay(pdMS_TO_TICKS(10));
+}
 void showSplashScreen() {
+  ring.clear();
+  for(int i=0; i<NUM_LEDS; i+=2) ring.setPixelColor(i, ring.Color(255, 0, 0));
+  for(int i=1; i<NUM_LEDS; i+=2) ring.setPixelColor(i, ring.Color(255, 255, 255));
+  ring.show();
+  vTaskDelay(pdMS_TO_TICKS(10));
   display.clearDisplay();
   display.setTextColor(WHITE);
-  centerPrint("PONG", 8, 3);
+  centerPrint("KITTYPONG", 8, 2);
   centerPrint("Move paddles", 30, 1);
   centerPrint("to start", 42, 1);
   display.display();
@@ -124,7 +153,18 @@ void playStartSound() {
   tone(BEEPER, 700, 80);
 }
 
+void resetGame() {
+  scoreA = 0;
+  scoreB = 0;
 
+  paddleA = 30;
+  paddleB = 30;
+
+  resetBall();
+
+  ballSpeedX = (random(0,2)==0) ? 2.2f : -2.2f;
+  ballSpeedY = 1.0f;
+}
 // ─── SETUP ─────────────────────────────────────────────────
 void setup() {
   Serial.begin(115200);
@@ -132,6 +172,7 @@ void setup() {
 
   pinMode(BEEPER, OUTPUT);
   noTone(BEEPER);
+  ring.begin();
 
   if (!display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDR)) {
     Serial.println(F("SSD1306 init failed"));
@@ -149,7 +190,7 @@ void setup() {
   }
 
   // Crear tareas
-  xTaskCreate(taskNeoPixel, "LED_Task", 3000, NULL, 1, NULL);
+  //xTaskCreate(taskNeoPixel, "LED_Task", 3000, NULL, 1, NULL);
   xTaskCreate(
     TaskReadControls,      // función
     "ReadControls",        // nombre (debug)
@@ -201,29 +242,27 @@ void loop() {
 // ─── Tarea 1: Leer potenciómetros ──────────────────────────
 void TaskReadControls(void *pvParameters) {
   for (;;) {
-    int valA = analogRead(POT_A);
-    int valB = analogRead(POT_B);
+    int lastValA = analogRead(POT_A);
+    int lastValB = analogRead(POT_B);
 
     if (xSemaphoreTake(gameMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
-      paddleA = map(valA, 0, 4095, 0, SCREEN_HEIGHT - PADDLE_H);
-      paddleB = map(valB, 0, 4095, 0, SCREEN_HEIGHT - PADDLE_H);
+      paddleA = map(lastValA, 0, 4095, 0, SCREEN_HEIGHT - PADDLE_H);
+      paddleB = map(lastValB, 0, 4095, 0, SCREEN_HEIGHT - PADDLE_H);
       xSemaphoreGive(gameMutex);
     }
 
     // Si estamos en splash y hay movimiento → iniciar juego
-    if (!gameRunning) {
-      static int prevA = analogRead(POT_A), prevB = analogRead(POT_B);
-      if ((valA!=prevA) || (valB!=prevB)) {
+    if (gameState==SPLASH) {
+      int valA=analogRead(POT_A);
+      int valB=analogRead(POT_B);
+      if (lastValA==lastValB) {
         if (xSemaphoreTake(gameMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
-          resetBall();
-          scoreA = scoreB = 0;
-          gameRunning = true;
+          resetGame();
+          gameState = PLAYING;
           xSemaphoreGive(gameMutex);
         }
         playStartSound();  // no bloqueante
       }
-      prevA = valA;
-      prevB = valB;
     }
 
     vTaskDelay(pdMS_TO_TICKS(20));  // ~50 Hz lectura
@@ -235,11 +274,13 @@ void TaskUpdatePhysics(void *pvParameters) {
   TickType_t xLastWakeTime = xTaskGetTickCount();
 
   for (;;) {
-    if (!gameRunning) {
+    if (gameState!=PLAYING) {
       vTaskDelay(pdMS_TO_TICKS(100));
       continue;
     }
-
+    if((scoreA>7)||(scoreB>7)){
+      gameState = GAME_OVER;
+    }
     if (xSemaphoreTake(gameMutex, pdMS_TO_TICKS(5)) == pdTRUE) {
       // Guardar velocidades de pala para efecto
       static int lastPA = 0, lastPB = 0;
@@ -300,9 +341,24 @@ void TaskRenderDisplay(void *pvParameters) {
     display.clearDisplay();
 
     if (xSemaphoreTake(gameMutex, pdMS_TO_TICKS(8)) == pdTRUE) {
-      if (!gameRunning) {
+      if (gameState==SPLASH) {
         drawSplash();
-      } else {
+      }
+      else if(gameState==GAME_OVER){
+        const char * winner = (scoreA>7) ? "A" : "B"; 
+        display.clearDisplay();
+        display.setTextColor(WHITE);
+        centerPrint("WINNER IS:", 8, 2);
+        centerPrint(winner, 30, 2);
+        display.display();
+        vTaskDelay(pdMS_TO_TICKS(3000));
+        display.clearDisplay(); 
+        showSplashScreen();
+        resetGame();
+        gameState=SPLASH;
+      }
+      else if (gameState==PLAYING){
+        updateScore();
         // Palas
         display.fillRect(PADDLE_PAD, paddleA, PADDLE_W, PADDLE_H, WHITE);
         display.fillRect(SCREEN_WIDTH - PADDLE_PAD - PADDLE_W, paddleB, PADDLE_W, PADDLE_H, WHITE);
